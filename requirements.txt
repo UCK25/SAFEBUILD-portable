@@ -1,0 +1,11 @@
+flask
+gunicorn
+pillow
+opencv-python-headless
+ultralytics
+numpy
+qrcode
+pyzbar
+itsdangerous
+openpyxl
+reportlab
