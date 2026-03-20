@@ -593,6 +593,11 @@
       fetchUsers();
     }
     
+    // Heartbeat to keep backend alive
+    setInterval(() => {
+      fetch('/api/heartbeat', { method: 'POST' }).catch(()=>{});
+    }, 1000);
+
     init();
   </script>
 </body>

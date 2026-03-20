@@ -376,17 +376,10 @@ def list_cameras():
     return cameras
 
 # CRUD Incidentes
-<<<<<<< HEAD
-def register_incident(camera_name, incident_type, description, user_identified=None, evidence_path=None, dedupe_window_minutes: int = 60):
-    """
-    Registra un incidente en la BD.
-    - Si existe un incidente similar (misma cámara, mismo tipo, mismo usuario) dentro de `dedupe_window_minutes`,
-=======
 def register_incident(camera_name, incident_type, description, user_identified=None, evidence_path=None, dedupe_window_minutes: float = 60.0):
     """
     Registra un incidente en la BD.
-        - Si existe un incidente similar (misma cámara, mismo tipo, mismo usuario) dentro de `dedupe_window_minutes`,
->>>>>>> b50a18c0e56f16fadfdab1bd888d654bf68c2258
+    - Si existe un incidente similar (misma cámara, mismo tipo, mismo usuario) dentro de `dedupe_window_minutes`,
       actualiza el registro existente incrementando `occurrences` y actualizando `last_seen` / `evidence_path`.
     - Si no existe, inserta un nuevo registro con `occurrences=1`.
     Esto evita contar múltiples registros por la misma situación continuada.
@@ -453,9 +446,6 @@ def update_incident(incident_id, status):
     conn.commit()
     conn.close()
 
-<<<<<<< HEAD
-=======
-
 def assign_user_to_incident(incident_id, username):
     """
     Assign a username to an incident's user_identified field.
@@ -514,7 +504,6 @@ def update_incident_user_recent(camera_name, incident_type, user_identified, wit
         except Exception:
             pass
 
->>>>>>> b50a18c0e56f16fadfdab1bd888d654bf68c2258
 def log_qr_download(downloaded_by_id, target_user_id, download_path):
     """QRのダウンロードを記録"""
     try:
@@ -937,9 +926,6 @@ def generate_report_pdf(output_pdf='reporte_analizado.pdf', time_window_minutes=
 
     doc.build(story)
     print(f"PDF generado: {output_pdf}")
-<<<<<<< HEAD
-    return output_pdf
-=======
     return output_pdf
 
 
@@ -1064,4 +1050,3 @@ def generate_monthly_summary_zip(year: int, month: int, output_zip: str = None):
         pass
 
     return output_zip
->>>>>>> b50a18c0e56f16fadfdab1bd888d654bf68c2258

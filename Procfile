@@ -1,1 +1,0 @@
-web: gunicorn flask_server:app --bind 0.0.0.0:$PORT

@@ -1,48 +1,77 @@
-# 🛡️ SafeBuild Monitor - Sistema Inteligente de Monitoreo de Seguridad en Obras
+# SafeBuild Monitor - Sistema de Monitoreo de Seguridad en Obras
 
-**Un sistema web de detección en tiempo real de incidentes de seguridad en construcciones utilizando IA (YOLOv8) y análisis de riesgos.**
 
-<<<<<<< HEAD
+SafeBuild Monitor es un sistema web de monitoreo en tiempo real para el Sector de Construcción. Utiliza el modelo de IA YOLOv8n para la detección automatizada de cascos y chalecos, contribuyendo con la prevención de incidentes. Realiza con servidor Flask (python) integrado para computadora Windows, acceso por navegador y cierre automatico.
+
+Entrenado con datasets de Roboflow "helmet-vest-detection-9esst" en total de 314 imagenes.
+
+[helmet-vest-detection-9esst](https://universe.roboflow.com/helmet-and-vest-detection/helmet-vest-detection-9esst)
+
+
 ---
 
 ## Contenido
-1. [Características Principales](#características-principales)
-2. [Instalación Rápida](#instalación-rápida)
-3. [Funcionalidades Detalladas](#funcionalidades-detalladas)
-4. [Requisitos del Sistema](#requisitos-del-sistema)
-5. [Guía de Uso](#guía-de-uso)
-6. [Funciones por Módulo](#funciones-por-módulo)
+
+1. [Caracteristicas Principales](#caracteristicas-principales)
+2. [Requisitos del Sistema](#requisitos-del-sistema)
+3. [Instalacion y Ejecucion](#instalacion-y-ejecucion)
+4. [Arquitectura del Sistema](#arquitectura-del-sistema)
+5. [Modelo de Inteligencia Artificial](#modelo-de-inteligencia-artificial)
+6. [Funcionalidades Detalladas](#funcionalidades-detalladas)
 7. [Base de Datos](#base-de-datos)
-8. [Configuración Avanzada](#configuración-avanzada)
-=======
+8. [Modulos del Sistema](#modulos-del-sistema)
+9. [Guia de Uso](#guia-de-uso)
+10. [Configuracion Avanzada](#configuracion-avanzada)
+11. [Solucion de Problemas](#solucion-de-problemas)
+12. [Seguridad](#seguridad)
+
+---
 ## Riesgos
 - William Fine integrado en observer.py para severidad.
 - Pruebas: Simula con videos; precisión >90%.
->>>>>>> b50a18c0e56f16fadfdab1bd888d654bf68c2258
-
 ---
 
-## Características Principales
+## Caracteristicas Principales
 
-### Detección de Equipos de Protección (EPP)
+### Detección de Equipos de Protección Personal (EPP)
+
 - **Detección en Tiempo Real**: Identifica automáticamente a personas sin arnés de seguridad o chaleco de seguridad
-- **Modelo YOLOv8 Entrenado**: Precisión superior al 90% en detección de chaleco de seguridad
-- **Alertas Automáticas**: Notifica inmediatamente cuando se detecta ausencia de EPP
+- **Clases detectadas**: helmet (casco), not_helmet (sin casco), reflective (chaleco), not_reflective (sin chaleco)
+- Detección continua desde la cámara del navegador, sin interrupciones
+- Bounding boxes con dimensiones exactas del objeto detectado (ajuste automático por distancia y proporción)
+- Score de confianza visible junto a cada detección (ej. "Falta Casco 87%")
+- **Modelo YOLOv8 Entrenado**: Precisión superior al 90% en detección de casco de seguridad
+- **Alertas Automáticas**: Notifica inmediatamente cuando se detecta ausencia de (Equipos de protección personal) EPP
+
+
+### Visualización Dinámica por Nivel de Confianza
+
+Para alertas de incumplimiento, el color del recuadro varia según la confianza del modelo:
+- Rojo (>80% confianza): violación con alta certeza
+- Naranja (60-80% confianza): violación con confianza media
+- Amarillo (<60% confianza): violación con confianza baja
+
+Para EPP correcto presente:
+- Cyan: casco o chaleco detectado correctamente
+
+Texto con fondo semitransparente para legibilidad siempre garantizada.
+
+### Dashboard en Tiempo Real
+- Interfaz web accesible en http://localhost:8000
+- Cámara del navegador con overlay de detecciones sin parpadeos
+- Bucle de captura sin retardo mediante requestAnimationFrame
+- Historial de escaneos QR con timestamp
+- Lista de últimos incidentes con descripción y estado
 
 ### Identificación de Usuarios mediante QR
 - **Lectura de Códigos QR**: Identifica automáticamente trabajadores mediante códigos QR integrados
 - **Mapeo por Proximidad**: Asocia códigos QR detectados con la persona más cercana en la cámara
 - **Fallback para Identidades Desconocidas**: Si no hay QR, registra como "usuario desconocido"
 
-### Gestión de Alertas Inteligentes
-- **Sistema de Observadores**: Patrón Observer para reaccionar a eventos de seguridad
-- **Deduplicación Automática**: Evita alertas repetidas del mismo evento en ventanas de 3 segundos
-- **Cooldown Configurable**: Controla la frecuencia de alertas por tipo de evento
-
-### Análisis de Riesgos (Matriz William Fine)
-- **Evaluación de Severidad**: Calcula el nivel de riesgo de cada incidente
-- **Fórmula William Fine**: Severidad = Probabilidad × Exposición × Consecuencia
-- **Clasificación de Riesgos**: Categoriza incidentes en Trivial, Tolerable, Moderado, Sustancial o Intolerable
+### Gestión de Usuarios y Permisos
+- Roles: admin, supervisor, guest
+- Asignación de código QR único por usuario
+- Generación de QR imprimible desde la interfaz de administración
 
 ### Gestión de Base de Datos
 - **SQLite Local**: Base de datos integrada con seguridad mediante PBKDF2-HMAC-SHA256
@@ -50,65 +79,194 @@
 - **Logs de Auditoría**: Registra todas las acciones administrativas
 - **Historial de Descargas de QR**: Tracking de QR descargados por administradores
 
-### Sistema de Usuarios y Permisos
-- **Roles de Usuario**: Admin, Supervisor, Operario
-- **Autenticación Segura**: Contraseñas hasheadas con sal
-- **Generación de Códigos QR**: Admin puede generar QR para cada trabajador
-- **Auditoría de Cambios**: Registra quién cambió contraseñas y cuándo
+### Análisis de Riesgos (Matriz William Fine)
+- **Evaluación de Severidad**: Calcula el nivel de riesgo de cada incidente
+- **Fórmula William Fine**: Severidad = Probabilidad × Exposición × Consecuencia
+- **Clasificación de Riesgos**: Categoriza incidentes en Trivial, Tolerable, Moderado, Sustancial o Intolerable
 
-### Reportes y Análisis
-- **Reportes Detallados**: Generación en PDF con historial de incidentes
-- **Estadísticas por Cámara**: Análisis de frecuencia de incidentes
-- **Ranking de Usuarios**: Identifica usuarios con mayor número de incidentes
-- **Exportación de Datos**: Descarga de reportes en múltiples formatos
+### Registro de Incidentes
+- Registro automatico en SQLite al detectar una infraccion de EPP
+- Imagen de evidencia guardada en la carpeta captures/ en formato JPEG
+- Deduplicacion: si el mismo incidente ocurre en ventana de 5 segundos, se actualiza el registro existente
+- Exportacion de reportes en CSV y Excel (.xlsx) con imagenes de evidencia incrustadas
+
+### Cierre Automatico del Servidor
+- El navegador envia un "heartbeat" (latido) al servidor cada segundo
+- Si la pestana se cierra, el servidor detecta la ausencia de latido en 15 segundos y se apaga automaticamente
+- Elimina procesos residuales de Python en segundo plano
 
 ---
 
-## Instalación Rápida
+## Requisitos del Sistema
 
-### Opción 1: Batch File (Windows - Más Simple)
-```bash
-# Solo haz doble-clic en:
-EJECUTAR.bat
-# O
-RUN.bat
+Sistema Operativo: Windows 10 o Windows 11 (64 bits)
+Python: 3.9 o superior (3.12 compatible y probado)
+Navegador: Firefox, Chrome o Edge (recomendado para acceso a camara WebRTC)
+Camara: Webcam integrada o USB con resolucion minima 720p
+RAM: 4 GB minimo, 8 GB recomendado
+Espacio en disco: aproximadamente 3 GB (modelo YOLO incluido)
+Red: Solo red local. No requiere conexion a Internet para operar.
+
+### Dependencias (requirement.txt)
 ```
-
-### Opción 2: PowerShell (Windows - Más Moderno)
-```powershell
-# Ejecutar primero una sola vez:
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Luego:
-.\RUN.ps1
-```
-
-### Opción 3: Manual (Cualquier Sistema)
-```bash
-# 1. Instala Python 3.9+ desde https://www.python.org/downloads/
-# 2. Instala dependencias:
-pip install -r requirement.txt
-
-# 3. Entrena el modelo (opcional, ya incluido):
-yolo task=detect mode=train model=yolov8n.pt data=Safety-vest---v4-1/data.yaml epochs=100
-
-# 4. Ejecuta la aplicación:
-streamlit run app.py
-
-# 5. Accede a:
-# http://localhost:8501
+flask
+itsdangerous
+ultralytics
+opencv-python-headless
+numpy
+Pillow
+pyzbar
+openpyxl
+reportlab
 ```
 
 ---
 
-## 🔧 Funcionalidades Detalladas
+## Instalacion y Ejecucion
+
+### Metodo unico para Windows: EJECUTAR.bat
+
+Hacer doble clic en el archivo EJECUTAR.bat incluido en la carpeta del proyecto.
+
+Secuencia de ejecucion del script:
+1. Verifica que Python este instalado.
+   - Si no esta instalado: muestra un mensaje en espanol con instrucciones para descargar Python
+     desde https://www.python.org/downloads/ y NO continua hasta que el usuario lo instale.
+2. Instala todas las dependencias de requirement.txt de forma silenciosa (sin ventana visible).
+3. Reinicia el proceso en modo oculto mediante un VBScript temporal.
+4. Abre el navegador predeterminado en http://localhost:8000 automaticamente.
+5. Al cerrar la pestana del navegador, el servidor se apaga solo gracias al watchdog de heartbeat.
+
+Nota: La ventana de comandos es completamente invisible durante la operacion normal.
+Solo aparece si Python no esta instalado, para mostrar el mensaje de error en espanol.
+
+---
+
+## Arquitectura del Sistema
+
+SafeBuild Monitor sigue una arquitectura cliente-servidor local (localhost):
+
+```
+[EJECUTAR.bat]
+    |
+    |-- Verifica Python -> Error en espanol si falta
+    |
+    |-- VBScript -> Relanza como proceso oculto
+                        |
+                [python flask_server.py]  <-- Servidor en http://0.0.0.0:8000
+                        |
+              __________|__________
+             |          |          |
+        [Modelo]   [SQLite DB]  [Capturas]
+        best.pt   safety_.db   captures/
+             |
+         YOLOv8n
+         (Inferencia CPU)
+
+[Navegador Web - Chrome/Edge]
+    |
+    |-- GET /dashboard  -> dashboard.html
+    |-- GET /manage     -> manage.html
+    |
+    |-- Camera (getUserMedia)
+    |       |
+    |       |-- canvas.toBlob() -> POST /detect_json -> JSON con boxes + QR
+    |       |
+    |       |-- renderOverlayLocal() -> strokeRect escalado sobre video
+    |
+    |-- POST /api/heartbeat (cada 1 segundo)
+            |
+            |-- watchdog: si no hay latido en 15s -> os._exit(0)
+```
+
+El diagrama completo en formato Mermaid se encuentra en el archivo arquitectura_mermaid.txt.
+Puede renderizarse en https://mermaid.live/ o en cualquier editor compatible (VS Code, GitHub, Notion, etc.)
+
+### Descripcion de capas
+
+Capa de inicio (Windows):
+- EJECUTAR.bat verifica Python y lanza el proceso oculto
+- El VBScript temporal redirige la ejecucion sin ventana
+
+Capa de servidor (Backend Flask):
+- flask_server.py maneja todas las rutas HTTP
+- POST /detect_json ejecuta inferencia YOLO y devuelve boxes + confianza + QR
+- Watchdog en hilo separado cierra el proceso si el navegador desaparece
+
+Capa de inteligencia artificial:
+- YOLOv8n base, afinado con dataset propio (Safety Vest v4)
+- Inferencia en CPU a 320px internamente, coordenadas relativas al frame original
+- Mapeo de clases: helmet/not_helmet/reflective/not_reflective -> espanol
+
+Capa de presentacion (Frontend):
+- dashboard.html captura frames con requestAnimationFrame y los envia al servidor
+- El overlay de canvas escala exactamente las coordenadas YOLO al tamano del elemento video
+
+Capa de datos:
+- SQLite local sin servidor externo
+- Archivos de evidencia JPEG en captures/
+
+---
+
+## Modelo de Inteligencia Artificial
+
+### Especificaciones del entrenamiento
+
+| Parametro | Valor |
+|---|---|
+| Arquitectura base | YOLOv8n (nano, 3.2M parametros) |
+| Dataset | Safety Vest v4 (Roboflow) |
+| Tamano de imagen de entrada | 416 x 416 px |
+| Epocas de entrenamiento | 40 |
+| Batch size | 16 |
+| Tiempo total de entrenamiento | 1,649 segundos (~27.5 minutos) |
+| Optimizador | Auto (SGD con warmup 3 epocas) |
+| Learning rate inicial | 0.01 |
+| Data augmentation | Mosaic, flipLR 50%, HSV, RandAugment |
+| Hardware | CPU (sin GPU) |
+
+### Metricas finales (epoca 40)
+
+| Metrica | Valor |
+|---|---|
+| Precision (B) | 0.830 (83.0%) |
+| Recall (B) | 0.819 (81.9%) |
+| mAP@0.5 | 0.850 (85.0%) |
+| mAP@0.5-0.95 | 0.592 (59.2%) |
+| Box loss (val) | 1.032 |
+| Cls loss (val) | 0.769 |
+
+### Clases detectadas
+
+| ID | Clase del modelo | Etiqueta mostrada | Accion |
+|----|------------------|-------------------|--------|
+| 0 | helmet | Casco | EPP correcto (cyan) |
+| 1 | not_helmet | Falta Casco | Incumplimiento (rojo/naranja) |
+| 2 | not_reflective | Falta Chaleco | Incumplimiento (rojo/naranja) |
+| 3 | reflective | Chaleco | EPP correcto (cyan) |
+
+### Umbral de confianza
+Configurable en config.py mediante DEFAULT_CONF (valor actual: 0.9).
+Rango recomendado segun condiciones:
+- Iluminacion optima: 0.7 - 0.9
+- Iluminacion normal: 0.45 - 0.7
+- Condiciones adversas: 0.3 - 0.45
+
+### Ubicacion del modelo
+```
+runs/detect/train9/weights/best.pt
+```
+
+---
+
+## Funcionalidades Detalladas
 
 ### Monitor en Vivo
 - Transmisión WebRTC: Acceso en tiempo real a la cámara web
 - Análisis en Vivo: Procesamiento de frames a velocidad de video
 - Visualización Dinamica: Dibuja bounding boxes adaptativos basados en tamaño y confianza
 - Precision Visible: Cada detección muestra su score de confianza (0.00 a 1.00)
-- Indicador de Confianza por Color: Rojo (baja) -> Amarillo (media) -> Verde (alta)
+- Indicador de Confianza por Color
 - Grosor Adaptativo: El grosor del box varía según el tamaño del objeto detectado
 - Modelo Utilizado: YOLOv8 entrenado con train9 (precision > 90%)
 
@@ -264,100 +422,165 @@ CREATE TABLE cameras (
 
 ---
 
+
 ## Base de Datos
 
-### Estructura de Tablas
+Base de datos SQLite local, archivo: safety_monitor.db
+No se envian datos a servidores externos en ningun momento.
 
-#### 1. **users**
-```python
+### Capacidad y tamano
+
+| Aspecto | Valor |
+|---|---|
+| Tamano inicial (vacia) | ~80 KB |
+| Por cada incidente (texto) | ~1 KB |
+| Por cada imagen de evidencia | ~80 - 200 KB (JPEG en captures/) |
+| Limite practico de la DB | Sin limite estricto (SQLite soporta hasta 281 TB) |
+| Limite recomendado por rendimiento | Hasta ~50,000 incidentes sin degradacion notable |
+| Imagenes de evidencia | Almacenadas en disco, no dentro del archivo .db |
+
+El archivo safety_monitor.db solo contiene texto (registros, usuarios, logs).
+Los archivos de imagen se guardan en captures/ y la DB guarda la ruta.
+
+### Tabla: users
+```sql
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    username TEXT UNIQUE,       # "juan_perez"
-    password TEXT,              # Hasheada con PBKDF2-HMAC-SHA256
-    role TEXT DEFAULT 'supervisor',  # 'admin', 'supervisor', 'operario'
-    qr_code TEXT UNIQUE         # "USER_12345ABC"
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,       -- PBKDF2-HMAC-SHA256 + sal aleatoria
+    role     TEXT DEFAULT 'supervisor',
+    qr_code  TEXT UNIQUE,
+    email    TEXT
 )
 ```
 
-**Usuario por Defecto**:
-- Username: `admin`
-- Password: `admin123`
-- Role: `admin`
-- QR: `ADMIN001`
+Usuario por defecto al iniciar por primera vez:
+- Usuario: admin
+- Contrasena: admin123  -- CAMBIAR INMEDIATAMENTE
+- Rol: admin
+- QR: ADMIN001
 
-#### 2. **incidents**
-```python
+### Tabla: incidents
+```sql
 CREATE TABLE incidents (
-    id INTEGER PRIMARY KEY,
-    camera_name TEXT,           # "Frente de Obra A"
-    type TEXT,                  # "MISSING_SAFETY_VEST", "MISSING_HARNESS", etc
-    timestamp TEXT,             # ISO 8601: "2024-03-10T14:30:45"
-    description TEXT,           # Detalles del incidente
-    status TEXT DEFAULT 'open', # 'open', 'reviewed', 'resolved'
-    evidence_path TEXT,         # Ruta a screenshot: "captures/incident_123.png"
-    user_identified TEXT,       # "juan_perez" o "unknown"
-    occurrences INTEGER DEFAULT 1,  # Conteo si es duplicado
-    last_seen TEXT              # Timestamp de última ocurrencia
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_name     TEXT,
+    type            TEXT,          -- "Falta Casco", "Falta Chaleco"
+    timestamp       TEXT,          -- "2026-03-17 22:30:01"
+    description     TEXT,
+    status          TEXT DEFAULT 'open',
+    evidence_path   TEXT,          -- ruta relativa en captures/
+    user_identified TEXT,
+    occurrences     INTEGER DEFAULT 1,
+    last_seen       TEXT
 )
 ```
 
-#### 3. **audit_logs**
-```python
+### Tabla: audit_logs
+```sql
 CREATE TABLE audit_logs (
-    id INTEGER PRIMARY KEY,
-    timestamp TEXT,              # Cuándo ocurrió
-    performed_by TEXT,           # Username de quién hizo la acción
-    action TEXT,                 # "PASSWORD_RESET", "QR_GENERATED", etc
-    target_user_id INTEGER,      # Usuario afectado
-    details TEXT                 # Información adicional JSON
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       TEXT,
+    performed_by    TEXT,
+    action          TEXT,
+    target_user_id  INTEGER,
+    details         TEXT
 )
 ```
 
-#### 4. **qr_downloads**
-```python
+### Tabla: qr_downloads
+```sql
 CREATE TABLE qr_downloads (
-    id INTEGER PRIMARY KEY,
-    timestamp TEXT,
-    downloaded_by INTEGER,       # Foreign Key: users.id
-    target_user_id INTEGER,      # Foreign Key: users.id
-    download_path TEXT           # Donde se guardó el PDF
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       TEXT NOT NULL,
+    downloaded_by   INTEGER,    -- FK: users.id
+    target_user_id  INTEGER,    -- FK: users.id
+    download_path   TEXT
 )
 ```
 
-### Funciones de Base de Datos
-
-#### Usuarios:
+### Funciones principales (database.py)
 ```python
-register_user(username, password, qr_code=None) → bool
-authenticate_user(username, password) → (id, username, role) or None
-get_user_by_qr(qr_code) → (id, username, role) or None
-list_users() → [(id, username, role, qr_code), ...]
-get_user_by_id(user_id) → (id, username, role, qr_code) or None
-reset_user_password(performed_by, target_user_id, new_password) → bool
-```
+# Usuarios
+register_user(username, password, qr_code, role) -> bool
+authenticate_user(username, password) -> (id, username, role) | None
+get_user_by_qr(qr_code) -> (id, username, role) | None
+list_users() -> [(id, username, role, qr_code), ...]
+update_user(user_id, username, qr_code) -> bool
+update_user_role(user_id, role) -> bool
+delete_user(user_id) -> bool
+reset_user_password(performed_by, target_user_id, new_password) -> bool
 
-#### Incidentes:
-```python
-register_incident(camera_name, incident_type, description, evidence_path, user_identified)
-list_incidents() → [(id, camera_name, type, timestamp, ...), ...]
-generate_report(output_path) → PDF con estadísticas
-get_incidents_by_status(status) → [incidentes filtrados]
-update_incident_status(incident_id, new_status) → bool
-```
+# Incidentes
+register_incident(camera_name, incident_type, description, user_identified, evidence_path, dedupe_window_minutes)
+list_incidents() -> [(id, camera_name, type, timestamp, ...), ...]
+update_incident(incident_id, status)
 
-#### Auditoría:
-```python
+# Reportes
+generate_report(output_path) -> str              # CSV
+generate_report_xlsx(year, month, output_path) -> str  # Excel con imagenes
+generate_report_by_period(year, month, output_path) -> str
+
+# Auditoría
 log_audit(performed_by, action, target_user_id, details)
 get_audit_logs(limit=100) → [logs del usuario y cambios]
 ```
 
 ---
 
-## Guía de Uso
+## Modulos del Sistema
+
+### flask_server.py - Servidor principal
+
+| Ruta | Metodo | Descripcion |
+|------|--------|-------------|
+| / | GET | Redirige al dashboard o login segun sesion |
+| /dashboard | GET | Pagina de monitoreo en tiempo real |
+| /manage | GET | Gestion de usuarios |
+| /detect_json | POST | Recibe frame JPEG, ejecuta YOLO, devuelve JSON |
+| /api/heartbeat | POST | Senhal de vida del navegador |
+| /api/login | POST | Autenticacion |
+| /api/me | GET | Datos del usuario en sesion |
+| /api/logout | POST | Cierre de sesion |
+| /api/users | GET/POST | Lista o crea usuarios |
+| /api/users/<id> | PUT/DELETE | Edita o elimina usuario |
+| /api/incidents | GET | Lista incidentes |
+| /api/last_incidents | GET | Ultimos incidentes recientes |
+| /api/last_qr | GET | Ultimo escaneo QR registrado |
+| /api/report/xlsx | GET | Descarga reporte Excel |
+
+### config.py - Configuracion global
+```python
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH   = os.path.join(PROJECT_ROOT, 'runs/detect/train9/weights/best.pt')
+DB_PATH      = os.path.join(PROJECT_ROOT, 'safety_monitor.db')
+CAPTURES_DIR = os.path.join(PROJECT_ROOT, 'captures')
+
+DEFAULT_CONF   = 0.9   # Umbral de confianza YOLO (0.0 - 1.0)
+ALERT_COOLDOWN = 10    # Segundos minimos entre alertas del mismo tipo
+QR_COOLDOWN    = 5     # Segundos minimos entre escaneos del mismo QR
+```
+
+### observer.py - Analisis de riesgos (Metodo William Fine)
+
+Formula: Nivel de Riesgo = Probabilidad x Exposicion x Consecuencias
+
+| Puntaje | Clasificacion | Accion Recomendada |
+|---------|---------------|--------------------|
+| < 20 | Trivial | Aceptable |
+| 20 - 70 | Tolerable | Revisar periodicamente |
+| 70 - 200 | Moderado | Intervencion planificada |
+| 200 - 400 | Sustancial | Accion inmediata |
+| > 400 | Intolerable | Detener actividad |
+
+
+---
+
+## Guia de Uso
 
 ### Inicio de Sesión
 
-1. **Accede a**: `http://localhost:8501`
+1. **Accede a**: `http://localhost:8000`
 2. **Credenciales Predeterminadas**:
    - Username: `admin`
    - Password: `admin123` **CAMBIAR en producción**
@@ -407,378 +630,170 @@ get_audit_logs(limit=100) → [logs del usuario y cambios]
    - `QR_COOLDOWN`: Segundos entre detecciones del mismo QR
    - Cámaras: Agregar/editar cámaras físicas
 
----
-
-## Funciones por Módulo
-
-### app.py - Interfaz Web (Streamlit)
-
-Funcion: `draw_dynamic_box(frame, x1, y1, x2, y2, label, confidence, class_name)`
-```python
-# Dibuja un bounding box dinamico con:
-# - Color basado en confianza (rojo bajo < 50%, amarillo medio, verde alto > 75%)
-# - Grosor dinamico basado en tamaño del objeto (1-5 pixeles)
-# - Label con clase y precision en formato: "clase 0.95"
-# - Fondo de rectangulo para mejor contraste del texto
-
-# Valores de color segun confianza:
-# - confidence < 0.5: Transicion de Rojo (200,0,0) a Amarillo (0,255,255)
-# - confidence >= 0.5: Transicion de Amarillo a Verde (0,255,0)
-#
-# Grosor = max(1, min(5, int(area_del_box / 20000)))
-```
-
-Funcion: `detect_qr_codes_in_frame(frame)`
-```python
-# Entrada: frame BGR (numpy array)
-# Salida: ([(qr_text, cx, cy, rect), ...], annotated_frame)
-# Usa: pyzbar para decodificar QRs
-```
-
-Funcion: `process_frame_with_model(frame, model)`
-```python
-# Entrada: frame BGR, modelo YOLO
-# Salida: (annotated_frame, payload_dict)
-#
-# payload contiene:
-#   - classes_detected: lista de clases encontradas con ID
-#   - qr_mapping: mapeo QR -> usuario identificado
-#   - timestamp: ISO 8601
-#
-# Internamente calcula:
-#   - Confianza individual para cada detección
-#   - Tamaño (width x height) de cada caja
-#   - Distancia al centro del frame
-#   - Agrupacion de detecciones por proximidad
-```
-
-Clase: `DetectorTransformer(VideoTransformerBase)`
-```python
-# Procesa frames en tiempo real desde WebRTC
-# transform(frame): Procesa frame y devuelve anotado
-# Coloca eventos en event_queue para procesamiento en hilo principal
-```
-
-Funcion: `capture_evidence(frame, incident_type)`
-```python
-# Guarda frame como evidencia en captures/
-# Retorna: ruta del archivo
-```
-
-### **observer.py** - Patrón Observer
-
-#### Clase: `SafetyMonitorSubject`
-```python
-__init__()                      # Inicializa state y observers
-attach(observer: Observer)      # Registra un observador
-detach(observer: Observer)      # Desregistra un observador
-notify(event_data: dict)        # Notifica a todos los observadores
-
-# Atributos:
-_state: dict                    # Estado actual
-_observers: List[Observer]      # Lista de observadores
-_recent_event_times: dict       # Deduplicación (evento -> último timestamp)
-_pending_events: dict           # Eventos esperando QR identification
-PENDING_WINDOW = 4.0 segundos   # Ventana para esperar QR
-```
-
-#### Clase: `AlertLogger`
-```python
-update(subject, event_data)     # Registra alerta en UI
-# Mensaje: "[TIMESTAMP] CÁMARA: ALERTA - Usuario: IDENTIFICADO"
-```
-
-#### Clase: `IncidentRegistrar`
-```python
-update(subject, event_data)     # Guarda en BD
-# Llama: register_incident() con datos del evento
-```
-
-#### Clase: `RankingUpdater`
-```python
-update(subject, event_data)     # Actualiza contador de incidentes por usuario
-get_ranking() → dict            # Retorna {usuario -> conteo}
-```
-
-### **database.py** - Gestión de Datos
-
-#### Funciones de Usuario:
-```python
-register_user(username, password, qr_code)
-authenticate_user(username, password) → (id, user, role)
-get_user_by_qr(qr_code) → user
-list_users() → [users]
-update_password(user_id, new_password)
-reset_user_password(performed_by, target_user_id, new_password)
-```
-
-#### Funciones de Incidentes:
-```python
-register_incident(camera_name, type, description, evidence_path, user_id)
-list_incidents() → [incidents]
-get_incidents_by_status(status) → [incidents]
-update_incident_status(incident_id, status)
-```
-
-#### Funciones de Reportes:
-```python
-generate_report(output_path) → PDF
-get_incident_statistics() → {por cámara, por tipo, etc}
-```
-
-### **config.py** - Configuración Global
-
-```python
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-DATASET_PATH = os.path.join(PROJECT_ROOT, 'Safety-vest---v4-1')
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'runs/detect/train9/weights/best.pt')
-DB_PATH = os.path.join(PROJECT_ROOT, 'safety_monitor.db')
-CAPTURES_DIR = os.path.join(PROJECT_ROOT, 'captures')
-
-DEFAULT_CONF = 0.4              # Umbral de confianza YOLOv8
-ALERT_COOLDOWN = 10             # Segundos mínimos entre alertas
-QR_COOLDOWN = 5                 # Segundos entre detecciones del mismo QR
-```
-
-### **camera_widget.py** - Captura de Video
-
-```python
-class CameraCapture:
-    __init__(camera_index=0)    # Inicializa cámara
-    capture_frame() → frame     # Lee siguiente frame
-    release()                   # Libera recurso
-    is_opened() → bool          # Verifica si está activa
-```
-
-### **main_window.py** - Ventana Principal (Legacy)
-
-> Nota: Actualmente la UI principal está en `app.py` (Streamlit). Este archivo puede ser para interfaz GUI alternativa.
 
 ---
 
-## Configuración Avanzada
+## Configuracion Avanzada
 
-### Cambiar Modelo YOLOv8
+### Cambiar el umbral de confianza del modelo
 
-Modelo Actual: train9 (precision > 90%)
-Ubicacion: runs/detect/train9/weights/best.pt
-
-Para entrenar un nuevo modelo:
-
-1. **Entrenar Nuevo Modelo**:
-```bash
-yolo task=detect mode=train model=yolov8m.pt data=Safety-vest---v4-1/data.yaml epochs=150 imgsz=640
-```
-
-2. **Actualizar Ruta en config.py** si sales del train9:
+Editar config.py:
 ```python
-# Cambio actual (train9):
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'runs/detect/train9/weights/best.pt')
-
-# Cambio a nuevo modelo (ej. train10):
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'runs/detect/train10/weights/best.pt')
+DEFAULT_CONF = 0.45  # Mas sensible (menos falsos negativos)
+DEFAULT_CONF = 0.90  # Mas estricto (menos falsos positivos)
 ```
+Recomendacion: comenzar con 0.45 y ajustar segun iluminacion del entorno.
 
-3. **Verificar que el archivo existe**:
+### Reemplazar el modelo YOLOv8
+
+1. Entrenar nuevo modelo:
 ```bash
-# Confirma que existe el archivo best.pt en la ruta
-dir runs/detect/train9/weights/
+yolo task=detect mode=train model=yolov8n.pt data=Safety-vest---v4-1/data.yaml epochs=100 imgsz=416
 ```
-
-### Ajustar Umbral de Confianza
-
-**En config.py**:
-```python
-DEFAULT_CONF = 0.5  # Valores más altos = menos falsos positivos (pero más falsos negativos)
+2. Verificar que exista el archivo de pesos:
 ```
+runs/detect/trainX/weights/best.pt
+```
+3. Actualizar MODEL_PATH en config.py si el directorio cambia.
 
-### Configurar Múltiples Cámaras
-
-**En la UI Admin**:
-1. Tab: **Admin**
-2. Sección: **Configurar Cámaras**
-3. **Agregar Cámara**:
-   - Nombre: `Área de Almacén`
-   - Tipo: `Webcam` / `IP Camera` / `USB`
-   - Índice/URL: `0` / `http://192.168.1.100:8080`
-
-### Habilitar SSL/HTTPS (Producción)
+### Backup y restauracion de datos
 
 ```bash
-# Generar certificados
-openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
-
-# Ejecutar con SSL
-streamlit run app.py --logger.level=debug --server.sslKeyPath=key.pem --server.sslCertPath=cert.pem
-```
-
-### Backup de Base de Datos
-
-```bash
-# Copiar BD
-copy safety_monitor.db safety_monitor_backup_2024-03-10.db
+# Backup
+copy safety_monitor.db safety_monitor_backup_YYYYMMDD.db
 
 # Restaurar
-copy safety_monitor_backup_2024-03-10.db safety_monitor.db
+copy safety_monitor_backup_YYYYMMDD.db safety_monitor.db
 ```
+
+### Reinicio completo (borrar todos los datos)
+
+Para dejar el sistema en estado de fabrica sin modificar el codigo:
+```powershell
+Remove-Item safety_monitor.db, incidentes.log, incidents_raw.csv, reporte_analizado.xlsx -ErrorAction SilentlyContinue
+Get-ChildItem captures\ | Remove-Item -Force
+python -c "import database; database.init_db()"
+```
+Esto recrea la base de datos con el usuario admin/admin123 solamente.
 
 ---
 
-## Casos de Uso
+## Solucion de Problemas
 
-### Caso 1: Detección de Incumplimiento de PPE
+### El servidor no inicia
 ```
-1. Operario entra al área sin chaleco
-2. YOLOv8 detecta "person" sin "safety_vest"
-3. Sistema genera alerta: "MISSING_SAFETY_VEST"
-4. Si QR cercano → identifica usuario
-5. Registra en BD con nombre del operario
-6. Admin revisa en Reportes
-```
-
-### Caso 2: Identificación de Intruso
-```
-1. Persona desconocida entra a área restringida
-2. No lleva QR ni está registrada
-3. Sistema alerta: "INTRUDER_ALERT - Usuario: unknown"
-4. Se captura screenshot como evidencia
-5. Admin revisa y marca como "Acción Requerida"
-6. Se registra en auditoría
+Verificar:
+1. Python instalado: python --version
+2. Dependencias: pip install -r requirement.txt
+3. Puerto 8000 libre: netstat -an | findstr 8000
+4. Revisar mensaje de error en la ventana de comandos
 ```
 
-### Caso 3: Análisis de Tendencias
+### No aparecen recuadros de deteccion
 ```
-1. Admin accede a Reportes
-2. Ve gráfico: "Juan Pérez tiene 15 incidentes en 2 semanas"
-3. Decide capacitación específica
-4. Monitorea mejora en las próximas 2 semanas
-5. Genera reporte de eficacia
+Verificar:
+1. Que el modelo exista: runs/detect/train9/weights/best.pt
+2. Reducir DEFAULT_CONF en config.py (probar con 0.45)
+3. Mejorar la iluminacion del area supervizada
+4. Abrir DevTools (F12) -> Consola -> buscar errores de fetch
+5. Revisar los logs del servidor
 ```
 
----
+### La camara no funciona en el navegador
+```
+Verificar:
+1. Permitir acceso a camara en el navegador (icono de candado en la URL)
+2. Windows: Configuracion -> Privacidad -> Camara -> Permitir acceso
+3. Cerrar otras aplicaciones que usen la camara
+4. Usar Chrome o Edge (mejor soporte WebRTC)
+```
 
-## Estadísticas y Métricas
+### Los codigos QR no se leen
+```
+Verificar:
+1. pip install pyzbar pillow
+2. Buena iluminacion y camara enfocada al QR
+3. El usuario debe estar registrado en la base de datos
+4. En algunos sistemas Windows se pueden necesitar las DLLs de zbar adicionales
+```
 
-La aplicación rastrea automáticamente:
-
-- **Total de Incidentes**: Conteo global
-- **Incidentes por Tipo**: MISSING_VEST, MISSING_HARNESS, INTRUDER
-- **Incidentes por Cámara**: Cuál área tiene más problemas
-- **Incidentes por Usuario**: Ranking de frecuencia
-- **Tasa de Resolución**: % de incidentes cerrados
-- **Tiempo Promedio de Resolución**: Días desde incidente til cierre
-- **Tendencias**: Gráficos de incidentes a lo largo del tiempo
+### El servidor no se cierra al cerrar el navegador
+```
+El watchdog espera 15 segundos antes de cerrar.
+Si el proceso persiste, terminar manualmente:
+  taskkill /F /IM python.exe
+```
 
 ---
 
 ## Seguridad
 
-### Autenticación y Encriptación
-- Contraseñas hasheadas con **PBKDF2-HMAC-SHA256** + sal
-- **100,000 iteraciones** de hash (estándar OWASP)
-- Auditoría de cambios de contraseña
+### Autenticacion
+- Contrasenas protegidas con PBKDF2-HMAC-SHA256, 100,000 iteraciones y sal aleatoria de 16 bytes
+- Sesiones firmadas con itsdangerous usando clave configurable en la variable de entorno SAFEBUILD_SECRET
+- Registro de auditoria: cada cambio de contrasena queda en audit_logs
 
 ### Privacidad
-- BD local (no se envía datos a servidores externos)
-- Evidencias guardadas localmente
-- Logs completos para auditoría
+- Todo el procesamiento ocurre en la maquina local, sin comunicacion con servidores externos
+- Imagenes de evidencia almacenadas localmente en captures/
+- Base de datos SQLite portable y completamente local
 
-### Buenas Prácticas
-- **CAMBIAR contraseña default admin123 inmediatamente**
-- Hacer backup regular de `safety_monitor.db`
-- Usar HTTPS en producción (ver Configuración Avanzada)
-- Limitar acceso a carpetas de archivos locales
+### Recomendaciones para produccion
+- Cambiar inmediatamente la contrasena del usuario admin (por defecto: admin123)
+- Establecer una clave secreta fuerte:
+  set SAFEBUILD_SECRET=clave_segura_larga_aleatoria
+- Hacer backups regulares de safety_monitor.db
+- Limitar acceso fisico al equipo donde corre el servidor
 
 ---
 
-## Solución de Problemas
+## Casos de Uso
 
-### Problema: "Modelo no carga"
+### Deteccion de incumplimiento de EPP
 ```
-Solución:
-1. Verifica ruta en config.py
-2. Descarga modelo: 
-   yolo task=detect mode=train model=yolov8n.pt data=Safety-vest---v4-1/data.yaml
-3. Verifica que exista: runs/detect/train9/weights/best.pt
-```
-
-### Problema: "Cámara no funciona"
-```
-Solución:
-1. Verifica que os.path.join(PROJECT_ROOT, 'runs/detect/train9/weights/best.pt') no esté vacía
-2. Permite acceso a cámara en Windows:
-   Configuración → Privacidad → Cámara → Allow access
-3. Intenta con índice diferente (0, 1, 2...)
+1. Operario entra al area sin casco
+2. YOLOv8 detecta "not_helmet" con confianza >= umbral configurado
+3. El frontend dibuja recuadro rojo con etiqueta "Falta Casco 90%"
+4. El backend registra el incidente en la BD con captura de imagen
+5. Si hay QR visible, el incidente queda vinculado al nombre del trabajador
+6. El administrador puede revisar el historial en el dashboard
 ```
 
-### Problema: "QR no se detecta"
+### Generacion de reporte
 ```
-Solución:
-1. Asegúrate que la cámara esté enfocada a código QR
-2. Mejora iluminación
-3. Verifica que pyzbar esté instalado:
-   pip install pyzbar python-bidi pillow
-4. En Windows, puede requerir librerías adicionales
+1. Admin accede a /manage
+2. Descarga reporte Excel del periodo deseado
+3. El Excel incluye incidentes, ocurrencias, e imagenes de evidencia incrustadas
+4. Grafico circular de incidentes por camara incluido automaticamente
 ```
 
-### Problema: "Alertas muy frecuentes / muy pocas"
+### Alta de nuevo trabajador
 ```
-Solución:
-1. Aumenta DEFAULT_CONF en config.py para menos falsos positivos
-2. Ajusta ALERT_COOLDOWN para menos repetición
-3. Entrena modelo con más datos si es impreciso
+1. Admin accede a /manage
+2. Completa nombre de usuario, contrasena y rol
+3. Se genera un QR unico para ese usuario
+4. Descarga el codigo QR como imagen para imprimir y entregar al trabajador
+5. El trabajador muestra el QR ante la camara para identificarse
 ```
 
 ---
 
-## Arquitectura
+## Referencias
 
-```
-SafeBuild Monitor
-├── Frontend (Streamlit Web UI)
-│   ├── Monitor en Vivo (WebRTC)
-│   ├── Reportes (Gráficos y PDF)
-│   ├── Admin Panel (Usuarios, Cámaras, Config)
-│   └── Logs (Eventos en tiempo real)
-│
-├── Backend (Python)
-│   ├── app.py (Orquestador principal)
-│   ├── observer.py (Sistema de alertas)
-│   ├── database.py (BD SQLite)
-│   └── config.py (Configuración global)
-│
-├── IA/ML (YOLOv8)
-│   ├── Modelo entrenado: runs/detect/train9/weights/best.pt
-│   └── Dataset: Safety-vest---v4-1/
-│
-└── Datos
-    ├── safety_monitor.db (BD)
-    ├── captures/ (Evidencias fotográficas)
-    └── incidentes.log (Log de eventos)
-```
+| Componente | Documentacion |
+|---|---|
+| YOLOv8 | https://docs.ultralytics.com/ |
+| Flask | https://flask.palletsprojects.com/ |
+| pyzbar | https://github.com/NaturalHistoryMuseum/pyzbar |
+| Metodo William Fine | Implementado en observer.py |
+| openpyxl | https://openpyxl.readthedocs.io/ |
 
 ---
 
-## Referencias y Documentación
+## Soporte
 
-### Modelo YOLOv8
-- Repositorio: https://github.com/ultralytics/ultralytics
-- Documentación: https://docs.ultralytics.com/
-
-### Streamlit
-- Documentación: https://docs.streamlit.io/
-- WebRTC: https://github.com/whitphx/streamlit-webrtc
-
-### Método William Fine
-- Referencia: DOCUMENTO P4.docx (incluido en proyecto)
-- Fórmula: Riesgo = Probabilidad × Exposición × Consecuencias
-
----
-
-## Soporte y Actualizaciones
-
-Para reportar bugs o solicitar características:
-1. Verifica que tengas **Python 3.9+**
-2. Ejecuta: `pip install -r requirement.txt --upgrade`
-3. Comprueba los logs: `incidentes.log`
-4. Consulta la BD: `safety_monitor.db`
+Para reportar problemas:
+1. Verificar Python 3.9+: python --version
+2. Reinstalar dependencias: pip install -r requirement.txt --upgrade
+3. Revisar los mensajes de error en la ventana de comandos al ejecutar python flask_server.py
+4. Revisar la base de datos: safety_monitor.db

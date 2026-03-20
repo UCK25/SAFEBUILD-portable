@@ -1,0 +1,85 @@
+graph TD
+    subgraph Inicio["Inicio del sistema (Windows)"]
+        BAT["EJECUTAR.bat\nVerifica Python instalado"]
+        VBS["VBScript temporal\nReinicia el proceso oculto"]
+        FLASK["python flask_server.py\nproceso en segundo plano"]
+        BROWSER["Navegador web\nhttp://localhost:8000"]
+    end
+
+    subgraph Frontend["Frontend (Navegador)"]
+        DASH["dashboard.html\nMonitoreo en vivo"]
+        MANAGE["manage.html\nGestion de usuarios"]
+        CAM["Camara del navegador\ngetUserMedia"]
+        CANVAS["Canvas de overlay\nrequestAnimationFrame"]
+    end
+
+    subgraph API["Backend Flask (flask_server.py)"]
+        RT_ROOT["GET /\nRedirige segun sesion"]
+        RT_DASH["GET /dashboard"]
+        RT_MANAGE["GET /manage"]
+        RT_DETECT["POST /detect_json\nRecibe frame JPEG"]
+        RT_HB["POST /api/heartbeat\nSignal de vida del browser"]
+        RT_LOGIN["POST /api/login"]
+        RT_USERS["GET/POST /api/users"]
+        RT_INC["GET /api/incidents"]
+        RT_QR["GET /api/last_qr"]
+        RT_REPORT["GET /api/report/xlsx"]
+        WATCHDOG["Hilo: watchdog()\nCierra server si no hay heartbeat en 15s"]
+    end
+
+    subgraph IA["IA - Modelo YOLO"]
+        MODEL["YOLOv8n (best.pt)\ntrain9 - 40 epocas\nmAP@0.5 = 85.0%"]
+        NORM["normalize_class_name()\nhelmet -> casco\nnot_helmet -> sin casco\nreflective -> chaleco\nnot_reflective -> sin chaleco"]
+        QR_DET["detect_qr_code()\npyzbar / OpenCV"]
+    end
+
+    subgraph DB["Base de datos (SQLite)"]
+        SQLITE["safety_monitor.db"]
+        T_USERS["Tabla: users\nid, username, password, role, qr_code"]
+        T_INC["Tabla: incidents\nid, camera, type, timestamp, evidence_path"]
+        T_AUDIT["Tabla: audit_logs"]
+        T_QRDL["Tabla: qr_downloads"]
+    end
+
+    subgraph Archivos["Archivos locales"]
+        CAPTURES["captures/\nImagenes de evidencia JPG"]
+        CONFIG["config.py\nDEFAULT_CONF, MODEL_PATH"]
+    end
+
+    BAT -->|"Python no instalado:\nmensaje en espanol visible"| BAT
+    BAT --> VBS
+    VBS --> FLASK
+    FLASK --> BROWSER
+    BROWSER --> DASH
+    BROWSER --> MANAGE
+
+    DASH --> CAM
+    CAM -->|"Frame JPEG cada ciclo"| RT_DETECT
+    RT_DETECT --> MODEL
+    MODEL --> NORM
+    NORM -->|"boxes + conf"| RT_DETECT
+    RT_DETECT --> QR_DET
+    QR_DET -->|"qr_code, points"| RT_DETECT
+    RT_DETECT -->|"JSON: boxes, qr"| CANVAS
+    CANVAS -->|"strokeRect escalado\npor scaleX/scaleY"| DASH
+
+    DASH -->|"POST cada segundo"| RT_HB
+    RT_HB --> WATCHDOG
+
+    RT_DETECT -->|"Incidente 'sin casco/chaleco'"| SQLITE
+    RT_DETECT --> CAPTURES
+
+    RT_USERS --> SQLITE
+    RT_LOGIN --> SQLITE
+    RT_INC --> SQLITE
+    RT_QR --> SQLITE
+    RT_REPORT --> SQLITE
+    RT_REPORT --> CAPTURES
+
+    SQLITE --- T_USERS
+    SQLITE --- T_INC
+    SQLITE --- T_AUDIT
+    SQLITE --- T_QRDL
+
+    FLASK --> CONFIG
+    MODEL -.- CONFIG

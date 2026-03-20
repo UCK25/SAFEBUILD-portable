@@ -7,7 +7,7 @@ REM - Install dependencies into a local venv under the project folder
 REM - Run server using the venv's python.exe
 set "VENV_DIR=%~dp0venv"
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
-set "REQ_FILE=%~dp0requirement.txt"
+set "REQ_FILE=%~dp0requirements.txt"
 set "WHEELS_DIR=%~dp0wheels"
 set "DEPS_DONE_FILE=%VENV_DIR%\safebuild_deps_installed.flag"
 

@@ -5,6 +5,8 @@ opencv-python-headless
 ultralytics
 numpy
 qrcode
+Flask>=3.0.0
+itsdangerous>=2.1.2
 pyzbar
 itsdangerous
 openpyxl

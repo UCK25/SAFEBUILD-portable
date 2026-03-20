@@ -1,7 +1,0 @@
-@echo off
-REM SafeBuild Monitor - Versión simplificada
-REM Doble-clic para ejecutar
-
-cd /d "%~dp0"
-python -m pip install -q -r requirement.txt 2>nul
-python -m streamlit run app.py

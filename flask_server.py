@@ -28,6 +28,12 @@ SERIALIZER = URLSafeSerializer(SECRET_KEY) if URLSafeSerializer is not None else
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
+# Offline mode: avoid any behavior that could try to download weights at runtime.
+SAFEBUILD_OFFLINE = str(os.environ.get('SAFEBUILD_OFFLINE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
+
+# Watchdog: tracks last browser heartbeat to auto-shutdown when tab is closed
+last_heartbeat_time = None
+
 # Asegurar que exista el directorio de capturas
 os.makedirs(CAPTURES_DIR, exist_ok=True)
 
@@ -62,13 +68,16 @@ for p in MODEL_PATHS:
         print('Error loading model', e)
 
 if model is None:
-    try:
-        model = YOLO('yolov8n.pt')
-        model.to('cpu')
-        print('Loaded fallback yolov8n.pt')
-    except Exception as e:
-        print('Failed to load fallback model:', e)
-        model = None
+    if SAFEBUILD_OFFLINE:
+        print('Offline mode: skipping YOLO fallback weights download.')
+    else:
+        try:
+            model = YOLO('yolov8n.pt')
+            model.to('cpu')
+            print('Loaded fallback yolov8n.pt')
+        except Exception as e:
+            print('Failed to load fallback model:', e)
+            model = None
 
 
 # SMTP helper: read common environment variable names and normalize
@@ -1065,7 +1074,8 @@ def report_csv():
         return jsonify({'ok': False}), 401
     if str(user[2]).lower() == 'guest':
         return jsonify({'ok': False, 'error': 'forbidden'}), 403
-    out = generate_report(output_path='reporte_analizado.csv')
+    # Use absolute path so output works regardless of current working directory.
+    out = generate_report(output_path=os.path.join(PROJECT_ROOT, 'reporte_analizado.csv'))
     if not os.path.exists(out):
         return jsonify({'ok': False, 'error': 'report failed'}), 500
     return send_file(out, mimetype='text/csv', as_attachment=True, download_name=os.path.basename(out))
@@ -1091,17 +1101,25 @@ def report_xlsx():
     # generate raw incidents CSV for period (or all)
     try:
         if year or month:
-            raw_csv = generate_report_by_period(year=int(year) if year else None, month=int(month) if month else None, output_path='incidents_raw.csv')
+            raw_csv = generate_report_by_period(
+                year=int(year) if year else None,
+                month=int(month) if month else None,
+                output_path=os.path.join(PROJECT_ROOT, 'incidents_raw.csv'),
+            )
         else:
-            raw_csv = generate_report(output_path='incidents_raw.csv')
+            raw_csv = generate_report(output_path=os.path.join(PROJECT_ROOT, 'incidents_raw.csv'))
     except Exception:
         # fallback to default full report
-        raw_csv = generate_report(output_path='incidents_raw.csv')
+        raw_csv = generate_report(output_path=os.path.join(PROJECT_ROOT, 'incidents_raw.csv'))
 
-    zip_name = f'reporte_bundle_{time.strftime("%Y%m%d_%H%M%S")}.zip'
+    zip_name = os.path.join(PROJECT_ROOT, f'reporte_bundle_{time.strftime("%Y%m%d_%H%M%S")}.zip')
     try:
         # create XLSX; if this fails we fail explicitly because requirement is to return raw CSV + XLSX together
-        xlsx_out = generate_report_xlsx(year=int(year) if year else None, month=int(month) if month else None, output_path='reporte_analizado.xlsx')
+        xlsx_out = generate_report_xlsx(
+            year=int(year) if year else None,
+            month=int(month) if month else None,
+            output_path=os.path.join(PROJECT_ROOT, 'reporte_analizado.xlsx'),
+        )
         # build zip with raw CSV + xlsx
         import zipfile
         with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
@@ -1121,7 +1139,7 @@ def report_pdf():
     if str(user[2]).lower() == 'guest':
         return jsonify({'ok': False, 'error': 'forbidden'}), 403
     try:
-        out = generate_report_pdf(output_pdf='reporte_analizado.pdf')
+        out = generate_report_pdf(output_pdf=os.path.join(PROJECT_ROOT, 'reporte_analizado.pdf'))
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
     return send_file(out, mimetype='application/pdf', as_attachment=True, download_name=os.path.basename(out))
@@ -1181,6 +1199,14 @@ def api_list_incidents():
             ts = None
         out.append({'id': r[0], 'camera_name': r[1], 'type': r[2], 'timestamp': ts, 'description': r[4], 'status': r[5], 'user_identified': r[7]})
     return jsonify(out)
+
+last_heartbeat_time = None
+
+@app.route('/api/heartbeat', methods=['POST'])
+def heartbeat():
+    global last_heartbeat_time
+    last_heartbeat_time = time.time()
+    return jsonify({'ok': True})
 
 
 @app.route('/api/login', methods=['POST'])
@@ -1382,59 +1408,55 @@ def detect_json():
             if boxes is not None and hasattr(boxes, 'xyxy'):
                 xyxy = boxes.xyxy.cpu().numpy()
                 cls_ids = boxes.cls.cpu().numpy()
+                confs = boxes.conf.cpu().numpy() if hasattr(boxes, 'conf') else [1.0] * len(xyxy)
                 for i, box in enumerate(xyxy):
-                    x1, y1, x2, y2 = [int(v) for v in box]
+                    x1, y1, x2, y2 = [float(v) for v in box]
                     cid = int(cls_ids[i]) if len(cls_ids) > i else 0
+                    conf = float(confs[i]) if len(confs) > i else 1.0
                     raw = r.names.get(cid, str(cid))
                     cname = normalize_class_name(raw)
-                    if cname in ("casco", "sin casco", "chaleco", "sin chaleco"):
-                        boxes_out.append({'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'label': cname})
-                        try:
-                            color = (0, 0, 255) if 'sin' in cname else (255, 191, 0)
-                            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-                            label = ('Falta Casco' if 'sin' in cname and 'casco' in cname else
-                                     'Falta Chaleco' if 'sin' in cname else
-                                     'Casco' if 'casco' in cname else 'Chaleco')
-                            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-                            tx1, ty1 = x1, max(y1 - th - 8, 0)
-                            tx2, ty2 = x1 + tw + 8, ty1 + th + 6
-                            cv2.rectangle(annotated, (tx1, ty1), (tx2, ty2), (0, 0, 0), -1)
-                            cv2.putText(annotated, label, (x1 + 4, ty2 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-                        except Exception as e:
-                            annotated_error = (annotated_error or '') + f"|YOLO draw error: {e}"
 
-                        # Si es violación, registrar incidente de forma mínima
-                        if 'sin' in cname:
+                    # Return all detections to frontend
+                    boxes_out.append({
+                        'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 
+                        'label': cname, 'conf': conf
+                    })
+
+                    # Backend no longer draws bounding boxes, so the raw or annotated QR image remains clean
+                    # Frontend is now fully responsible for drawing
+
+                    # Si es violación, registrar incidente de forma mínima
+                    if 'sin' in cname:
+                        try:
+                            cam = request.form.get('camera') or request.args.get('camera') or 'Camera_1'
+                            user_ident = qr_user or _find_recent_qr_user(cam, within_seconds=5)
+                            ts = time.strftime('%Y%m%d_%H%M%S')
+                            ev_path = os.path.join(CAPTURES_DIR, f'inc_{ts}.jpg')
                             try:
-                                cam = request.form.get('camera') or request.args.get('camera') or 'Camera_1'
-                                user_ident = qr_user or _find_recent_qr_user(cam, within_seconds=5)
-                                ts = time.strftime('%Y%m%d_%H%M%S')
-                                ev_path = os.path.join(CAPTURES_DIR, f'inc_{ts}.jpg')
-                                try:
-                                    cv2.imwrite(ev_path, img_np)
-                                except Exception:
-                                    ev_path = None
-                                incident_type = 'Falta Casco' if 'casco' in cname else 'Falta Chaleco'
-                                description = f"{incident_type} — {cam} {time.strftime('%Y-%m-%d %H:%M:%S')}\nUsuario: {user_ident or 'unknown'}"
-                                dedupe_min = 5.0 / 60.0
-                                register_incident(
-                                    camera_name=cam,
-                                    incident_type=incident_type,
-                                    description=description,
-                                    user_identified=user_ident,
-                                    evidence_path=ev_path,
-                                    dedupe_window_minutes=dedupe_min
-                                )
-                                try:
-                                    incidents = list_incidents()
-                                    simple = []
-                                    for inc in incidents:
-                                        simple.append({'id': inc[0], 'camera_name': inc[1], 'type': inc[2], 'timestamp': inc[3], 'description': inc[4], 'status': inc[5], 'evidence_path': inc[6], 'user_identified': inc[7]})
-                                    _write_incident_log(simple[:200])
-                                except Exception:
-                                    pass
+                                cv2.imwrite(ev_path, img_np)
+                            except Exception:
+                                ev_path = None
+                            incident_type = 'Falta Casco' if 'casco' in cname else 'Falta Chaleco'
+                            description = f"{incident_type} — {cam} {time.strftime('%Y-%m-%d %H:%M:%S')}\nUsuario: {user_ident or 'unknown'}"
+                            dedupe_min = 5.0 / 60.0
+                            register_incident(
+                                camera_name=cam,
+                                incident_type=incident_type,
+                                description=description,
+                                user_identified=user_ident,
+                                evidence_path=ev_path,
+                                dedupe_window_minutes=dedupe_min
+                            )
+                            try:
+                                incidents = list_incidents()
+                                simple = []
+                                for inc in incidents:
+                                    simple.append({'id': inc[0], 'camera_name': inc[1], 'type': inc[2], 'timestamp': inc[3], 'description': inc[4], 'status': inc[5], 'evidence_path': inc[6], 'user_identified': inc[7]})
+                                _write_incident_log(simple[:200])
                             except Exception:
                                 pass
+                        except Exception:
+                            pass
     except Exception:
         pass
 
@@ -1461,7 +1483,95 @@ def detect_json():
         resp['annotated_error'] = annotated_error
     return jsonify(resp)
 
+@app.route('/api/heartbeat', methods=['POST'])
+def api_heartbeat():
+    global last_heartbeat_time
+    last_heartbeat_time = time.time()
+    return jsonify({'ok': True})
+
+
+def watchdog():
+    global last_heartbeat_time
+    startup_time = time.time()
+    STARTUP_TIMEOUT = 60.0   # segundos para recibir el primer heartbeat
+    IDLE_TIMEOUT    = 15.0   # segundos sin heartbeat antes de cerrar
+
+    while True:
+        time.sleep(1)
+        now = time.time()
+
+        if last_heartbeat_time is None:
+            # Nunca se recibio heartbeat: cerrar si se paso el tiempo de arranque
+            if now - startup_time > STARTUP_TIMEOUT:
+                print("No heartbeat received within startup window. Shutting down.")
+                os._exit(0)
+        else:
+            # Ya se recibio al menos uno: cerrar si lleva mas de IDLE_TIMEOUT sin heartbeat
+            if now - last_heartbeat_time > IDLE_TIMEOUT:
+                print("Browser tab closed (heartbeat lost). Shutting down.")
+                os._exit(0)
+
 
 if __name__ == '__main__':
     # for local debugging
+    import threading, webbrowser, subprocess, sys
+    
+    def open_browser_reliable():
+        """Attempts to open the browser using multiple reliable methods"""
+        url = "http://127.0.0.1:8000/"
+        
+        # Method 1: webbrowser module (Standard approach)
+        try:
+            webbrowser.open(url)
+            print("Launching browser...")
+            return
+        except Exception as e:
+            print(f"Failed to launch using webbrowser module: {e}")
+        
+        # Method 2: Windows 'start' command (Windows only)
+        if sys.platform == "win32":
+            try:
+                os.system(f'start "" "{url}"')
+                print("Launching browser via Windows command...")
+                return
+            except Exception as e:
+                print(f"Failed to launch using Windows command: {e}")
+        
+        # Method 3: Direct Chrome launch
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        ]
+        for path in chrome_paths:
+            if os.path.exists(path):
+                try:
+                    subprocess.Popen([path, url])
+                    print("Launching with Chrome...")
+                    return
+                except Exception:
+                    pass
+        
+        # Method 4: Direct Edge launch
+        edge_paths = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+        ]
+        for path in edge_paths:
+            if os.path.exists(path):
+                try:
+                    subprocess.Popen([path, url])
+                    print("Launching with Edge...")
+                    return
+                except Exception:
+                    pass
+        
+        print("Failed to auto-launch browser. Please open the following URL manually:")
+        print(url)
+    
+    threading.Thread(target=watchdog, daemon=True).start()
+    
+    # Launch browser after server starts (with a slight delay for reliability)
+    threading.Timer(1.0, open_browser_reliable).start()
+    
+    print("Starting SafeBuild server... http://127.0.0.1:8000/")
     app.run(host='0.0.0.0', port=8000)
